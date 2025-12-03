@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import cholesky,solve_triangular
 
 class GP_Binary_Classifier:
     def __init__(self):
@@ -45,19 +46,22 @@ class GP_Binary_Classifier:
         N = len(X)
         f = np.zeros(N)
         I = np.eye(N)
-        
+        tmp = 0
+
         for _ in range(max_iter):
+            tmp += 1
             W = -self.hessian_likelihood_y_f(y,f)
             sqrtW = self.sqrtm(W)
-            L = np.linalg.cholesky(I + sqrtW @ K @ sqrtW)
+            L = cholesky(I + sqrtW @ K @ sqrtW,lower=True)
             b = W @ f + self.grad_likelihood_y_f(y,f)
-            a = b - sqrtW @ np.linalg.solve(L.T, np.linalg.solve(L, sqrtW @ K @ b))
+            a = b - sqrtW @ solve_triangular(L.T, solve_triangular(L, sqrtW @ K @ b, lower=True))
             f_new = K @ a
             if (np.linalg.norm(f-f_new) < tol):
                 f = f_new
                 break
             f = f_new
         
+        print(f"迭代了{tmp}次")
         self.f_hat = f
         self.max_log_q = -0.5 * a.T @ f + self.likelihood_y_f(y,f) - np.sum(np.log(np.diag(L)))
         return self.f_hat, self.max_log_q
